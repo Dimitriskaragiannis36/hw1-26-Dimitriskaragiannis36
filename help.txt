@@ -512,7 +512,7 @@ print(output)
 p.close()
 
 -----------------------------------------------------------------------------------------------
-challenge #r0p
+challenge #Virtual Tablet
 solution: 2a640453aEE8AAED_all_your_vtables_are_belong_to_us
 hint:  nm ./tablet | grep -i admin -> 0804a9aa T _ZN5Admin11spawn_shellEv
     file ./tablet -> ./tablet: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), 
