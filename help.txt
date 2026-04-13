@@ -669,7 +669,9 @@ if __name__ == "__main__":
 -----------------------------------------------------------------------------------------------
 challenge #Fake TTY NG
 solution: you_ve_conquered_the_master_fatty_challenge_76215102
-hint:  exploit.py:
+hint:  εξήγηση και εντολές στο writeup.md
+
+exploit.py:
 #!/usr/bin/env python3
 from pwn import asm, context
 import socket
